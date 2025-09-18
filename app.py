@@ -1,12 +1,29 @@
 import streamlit as st
 import pandas as pd
+import os
 
-# Load dataset
-df = pd.read_csv("Cleaned_OLA_Dataset.csv")
-
-# App Title
+# ----------------------
+# Load Dataset
+# ----------------------
 st.title("OLA Ride Insights Dashboard")
 st.markdown("Interactive analytics on OLA Rides using Streamlit + Power BI")
+
+# Attempt to load CSV from local directory
+csv_file = "Cleaned_OLA_Dataset.csv"
+cwd = os.getcwd()
+csv_path = os.path.join(cwd, csv_file)
+
+if os.path.exists(csv_path):
+    df = pd.read_csv(csv_path)
+    st.success(f"CSV loaded from {csv_path}")
+else:
+    st.warning(f"File not found at {csv_path}. Please upload the CSV.")
+    uploaded_file = st.file_uploader("Upload Cleaned_OLA_Dataset.csv", type=["csv"])
+    if uploaded_file:
+        df = pd.read_csv(uploaded_file)
+        st.success("CSV loaded successfully!")
+    else:
+        st.stop()  # Stop app if no CSV available
 
 # ----------------------
 # Sidebar Filters
@@ -15,6 +32,7 @@ st.sidebar.header("Filters")
 
 # Date filter
 df["Date"] = pd.to_datetime(df["Date"], errors="coerce")
+df = df.dropna(subset=["Date"])  # remove rows where Date could not be parsed
 min_date, max_date = df["Date"].min(), df["Date"].max()
 date_range = st.sidebar.date_input("Select Date Range", [min_date, max_date])
 
@@ -30,7 +48,7 @@ payment = st.sidebar.selectbox("Payment Method", ["All"] + list(df["Payment_Meth
 # Apply filters
 filtered_df = df.copy()
 if date_range:
-    filtered_df = filtered_df[(filtered_df["Date"] >= pd.to_datetime(date_range[0])) & 
+    filtered_df = filtered_df[(filtered_df["Date"] >= pd.to_datetime(date_range[0])) &
                               (filtered_df["Date"] <= pd.to_datetime(date_range[1]))]
 if vehicle != "All":
     filtered_df = filtered_df[filtered_df["Vehicle_Type"] == vehicle]
@@ -43,7 +61,6 @@ if payment != "All":
 # KPI Cards
 # ----------------------
 st.subheader("Key Metrics")
-
 col1, col2, col3, col4, col5 = st.columns(5)
 col1.metric("Total Rides", len(filtered_df))
 col2.metric("Total Revenue", round(filtered_df["Booking_Value"].sum(), 2))
@@ -55,7 +72,6 @@ col5.metric("Cancellation Rate", f"{cancellation_rate:.1f}%")
 # ----------------------
 # Charts
 # ----------------------
-
 st.subheader("Rides Over Time")
 rides_per_day = filtered_df.groupby(filtered_df["Date"].dt.date).size()
 st.line_chart(rides_per_day)
@@ -66,12 +82,10 @@ st.bar_chart(top_vehicles)
 
 st.subheader("Payment Method Share")
 payment_share = filtered_df["Payment_Method"].value_counts()
-st.write(payment_share)
 st.bar_chart(payment_share)
 
 st.subheader("Booking Status Breakdown")
 status_share = filtered_df["Booking_Status"].value_counts()
-st.write(status_share)
 st.bar_chart(status_share)
 
 # ----------------------
